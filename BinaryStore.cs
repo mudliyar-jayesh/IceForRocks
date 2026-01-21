@@ -15,31 +15,16 @@ public class BinaryStore<T>
     }
 
     // SAVING: Write a list of records to a binary file
-    public void Save(string filePath, IEnumerable<T> records)
+    public void Save(string filePath, List<T> records)
     {
-        using var stream = new FileStream(
-            filePath,
-            FileMode.Create,
-            FileAccess.Write,
-            FileShare.None
-        );
-        using var writer = new BinaryWriter(stream);
+        int count = records.Count;
+        byte[] buffer = new byte[count * _recordSize];
 
-        foreach (var record in records)
-        {
-            byte[] buffer = new byte[_recordSize];
-            IntPtr ptr = Marshal.AllocHGlobal(_recordSize);
-            try
-            {
-                Marshal.StructureToPtr(record, ptr, false);
-                Marshal.Copy(ptr, buffer, 0, _recordSize);
-                writer.Write(buffer);
-            }
-            finally
-            {
-                Marshal.FreeHGlobal(ptr);
-            }
-        }
+        MemoryMarshal.AsBytes(CollectionsMarshal.AsSpan(records)).CopyTo(buffer);
+
+        string tempFile = $"{filePath}.tmp";
+        File.WriteAllBytes(tempFile, buffer);
+        File.Move(tempFile, filePath, overwrite: true); // avoids file corruption chances
     }
 
     // SEARCHING: Scan the file in parallel using a generic predicate
