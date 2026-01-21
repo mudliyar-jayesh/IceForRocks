@@ -1,0 +1,66 @@
+## Build Results
+[Bb]in/
+[Oo]bj/
+.intermediate/
+*.dll
+*.exe
+*.pdb
+
+## Nuget
+# We generally want to ignore the packages folder, but keep the config
+[Pp]ackages/
+!packages.config
+*.nupkg
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+## Visual Studio & MSBuild
+.vs/
+.tfs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.ncrunch*
+
+## VS Code
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+# Be careful with the above: sometimes you want to share launch/tasks, sometimes not. 
+# If you don't want to share any VS Code settings, uncomment the line below and remove the lines above:
+# .vscode/
+
+## JetBrains Rider
+.idea/
+*.sln.iml
+
+## Test Results
+TestResults/
+*.trx
+*.coverage
+*.coveragexml
+
+## Publishing
+publish/
+*.pubxml
+
+## Environment & Secrets (CRITICAL)
+# Never commit your development secrets or local configurations
+.env
+appsettings.Development.json
+appsettings.Local.json
+secrets.json
+
+## Logs (Since you are generating them!)
+*.log
+logs/
+Log/
+
+## Operating System files
+.DS_Store
+Thumbs.db
+[Dd]esktop.ini
