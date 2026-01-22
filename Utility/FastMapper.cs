@@ -179,16 +179,15 @@ public static class FastMapper<TClass, TStruct>
             if (prop.PropertyType == typeof(string))
             {
                 var size = prop.GetCustomAttribute<BinarySizeAttribute>()?.Size ?? 32;
-                var method = typeof(BinaryHelper).GetMethod(
-                    "ReadString",
-                    BindingFlags.Public | BindingFlags.Static
-                );
-                block.Add(
-                    Expression.Assign(
-                        Expression.Property(instance, prop),
-                        Expression.Call(method, fieldPtr, Expression.Constant(size))
-                    )
-                );
+
+                var readMethod = typeof(BinaryHelper).GetMethod("ReadString");
+                var poolMethod = typeof(StringPool).GetMethod("GetOrAdd");
+
+                var readCall = Expression.Call(readMethod, fieldPtr, Expression.Constant(size));
+
+                var pooledCall = Expression.Call(poolMethod, readCall);
+
+                block.Add(Expression.Assign(Expression.Property(instance, prop), pooledCall));
             }
             else if (prop.PropertyType == typeof(bool))
             {
