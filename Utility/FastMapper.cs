@@ -89,13 +89,12 @@ public static class FastMapper<TClass, TStruct>
             else if (prop.PropertyType == typeof(byte[]))
             {
                 var size = prop.GetCustomAttribute<BinarySizeAttribute>()?.Size ?? 64;
-                var method = typeof(BinaryHelper).GetMethod(
-                    "WriteBytes",
-                    BindingFlags.Public | BindingFlags.Static
-                );
+                var writeMethod = typeof(BinaryHelper).GetMethod("WriteBytes");
+
+                // Equivalent to: BinaryHelper.WriteBytes(src.PasswordHash, fieldPtr, 64);
                 block.Add(
                     Expression.Call(
-                        method,
+                        writeMethod,
                         Expression.Property(src, prop),
                         fieldPtr,
                         Expression.Constant(size)
@@ -201,6 +200,27 @@ public static class FastMapper<TClass, TStruct>
                         Expression.Equal(val, Expression.Constant((byte)1))
                     )
                 );
+            }
+            else if (prop.PropertyType == typeof(byte[]))
+            {
+                var size = prop.GetCustomAttribute<BinarySizeAttribute>()?.Size ?? 64;
+                var readMethod = typeof(BinaryHelper).GetMethod("ReadBytes");
+
+                // FIX: You MUST initialize the array in the class first
+                // Equivalent to: instance.PasswordHash = new byte[64];
+                var newArray = Expression.NewArrayBounds(typeof(byte), Expression.Constant(size));
+                var assignArray = Expression.Assign(Expression.Property(instance, prop), newArray);
+
+                // Equivalent to: BinaryHelper.ReadBytes(fieldPtr, instance.PasswordHash, 64);
+                var callRead = Expression.Call(
+                    readMethod,
+                    fieldPtr,
+                    Expression.Property(instance, prop),
+                    Expression.Constant(size)
+                );
+
+                block.Add(assignArray);
+                block.Add(callRead);
             }
             else
             {

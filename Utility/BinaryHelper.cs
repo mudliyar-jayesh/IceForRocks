@@ -62,10 +62,48 @@ public static class BinaryHelper
         return new decimal(bits);
     }
 
+    /*
+        public static void WriteBytes(byte[] source, IntPtr dest, int limit)
+        {
+            if (source == null)
+                return;
+            Marshal.Copy(source, 0, dest, Math.Min(source.Length, limit));
+        }
+    
+        public static void ReadBytes(IntPtr source, byte[] dest, int limit)
+        {
+            if (dest == null || source == IntPtr.Zero)
+                return;
+    
+            Marshal.Copy(source, dest, 0, Math.Min(dest.Length, limit));
+        }
+     */
+
     public static void WriteBytes(byte[] source, IntPtr dest, int limit)
     {
-        if (source == null)
+        if (dest == IntPtr.Zero)
             return;
-        Marshal.Copy(source, 0, dest, Math.Min(source.Length, limit));
+
+        unsafe
+        {
+            // Clear the target memory first
+            NativeMemory.Clear((void*)dest, (nuint)limit);
+        }
+
+        if (source == null || source.Length == 0)
+            return;
+
+        // Copy the bytes
+        int count = Math.Min(source.Length, limit);
+        Marshal.Copy(source, 0, dest, count);
+    }
+
+    public static void ReadBytes(IntPtr source, byte[] dest, int limit)
+    {
+        if (source == IntPtr.Zero || dest == null)
+            return;
+
+        // Copy from fixed buffer in struct to the managed array
+        Marshal.Copy(source, dest, 0, Math.Min(dest.Length, limit));
     }
 }
