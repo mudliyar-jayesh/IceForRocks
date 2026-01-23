@@ -31,22 +31,28 @@ public static class BinaryHelper
 
     public static void WriteString(string source, IntPtr dest, int limit)
     {
+        //  Zeroing out the memory first to prevent leftover data from old records
+        //  padding to data
+        for (int i = 0; i < limit; i++)
+            Marshal.WriteByte(dest, i, 0);
+
         if (string.IsNullOrEmpty(source))
             return;
+
         var bytes = System.Text.Encoding.UTF8.GetBytes(source);
-        int length = Math.Min(bytes.Length, limit - 1);
+
+        // writing full 8 bytes. if limit is 8 bytes. had issues with datetime to string storing. so this is a hack
+        int length = Math.Min(bytes.Length, limit);
         Marshal.Copy(bytes, 0, dest, length);
-        Marshal.WriteByte(dest, length, 0); // Null terminator
     }
 
     public static string ReadString(IntPtr src, int limit)
     {
-        int length = 0;
-        while (length < limit && Marshal.ReadByte(src, length) != 0)
-            length++;
-        byte[] buffer = new byte[length];
-        Marshal.Copy(src, buffer, 0, length);
-        return System.Text.Encoding.UTF8.GetString(buffer);
+        byte[] buffer = new byte[limit];
+        Marshal.Copy(src, buffer, 0, limit);
+
+        // Get the string and trim the trailing nulls (zeros) and spaces
+        return System.Text.Encoding.UTF8.GetString(buffer).TrimEnd('\0', ' ');
     }
 
     public static void WriteDecimal(IntPtr dest, decimal value)

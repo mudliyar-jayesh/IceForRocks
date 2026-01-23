@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Runtime.InteropServices;
@@ -99,6 +100,17 @@ public static class FastMapper<TClass, TStruct>
                         fieldPtr,
                         Expression.Constant(size)
                     )
+                );
+            }
+            else if (prop.PropertyType == typeof(DateTime))
+            {
+                var toStoreMethod = typeof(DateHelper).GetMethod("ToStoreFormat");
+                var dateStringCall = Expression.Call(toStoreMethod, Expression.Property(src, prop));
+
+                var writeMethod = typeof(BinaryHelper).GetMethod("WriteString");
+
+                block.Add(
+                    Expression.Call(writeMethod, dateStringCall, fieldPtr, Expression.Constant(8))
                 );
             }
             else // Handle Primitives (int, long, decimal)
@@ -221,6 +233,20 @@ public static class FastMapper<TClass, TStruct>
 
                 block.Add(assignArray);
                 block.Add(callRead);
+            }
+            else if (prop.PropertyType == typeof(DateTime))
+            {
+                var readMethod = typeof(BinaryHelper).GetMethod("ReadString");
+                var rawStringCall = Expression.Call(readMethod, fieldPtr, Expression.Constant(8));
+                // This removes the null terminator and any padding spaces
+                var trimMethod = typeof(string).GetMethod("Trim", new[] { typeof(char[]) });
+                var trimChars = Expression.Constant(new char[] { '\0', ' ' });
+                var cleanStringCall = Expression.Call(rawStringCall, trimMethod, trimChars);
+
+                var parseMethod = typeof(DateHelper).GetMethod("ParseSafe");
+                var dateTimeResult = Expression.Call(parseMethod, cleanStringCall);
+
+                block.Add(Expression.Assign(Expression.Property(instance, prop), dateTimeResult));
             }
             else
             {
