@@ -117,3 +117,16 @@ public unsafe struct JobRegisterRecord
 }
 
 ```
+Yes, this might be a hassle, but here is what the FUTURE SCOPE includes, a migration setup for source generation, 
+here is how I plan to setup a record for migration, 
+```code
+[IceRecord] // My custom attribute
+public partial class JobRegister
+{
+    [BinarySize(8)] // Automatically becomes 'fixed byte[8]' in the struct
+    public DateTime Date { get; set; }
+
+    [BinarySize(128)] 
+    public string Particulars { get; set; }
+}
+```
