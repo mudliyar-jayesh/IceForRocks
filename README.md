@@ -90,30 +90,30 @@ public unsafe struct JobRegisterRecord
     public fixed byte ConsigneeAddress[256];
 
     [FieldOffset(776)] // 520 + 256
-    public fixed byte JobNo[32];
+    public fixed byte SomeField1[32];
 
     [FieldOffset(808)] // 776 + 32
-    public fixed byte Branch[32];
+    public fixed byte SomeField2[32];
 
     [FieldOffset(840)] // 808 + 32
-    public fixed byte VoucherType[32];
+    public fixed byte SomeField3[32];
 
     [FieldOffset(872)] // 840 + 32
-    public fixed byte VoucherNo[32];
+    public fixed byte SomeField4[32];
 
     [FieldOffset(904)] // 872 + 32
-    public fixed byte VoucherRefNo[32];
+    public fixed byte SomeField5[32];
 
     [FieldOffset(936)] // 904 + 32
-    public fixed byte LedgerName[64];
+    public fixed byte SomeField6[64];
 
     [FieldOffset(1000)] // 936 + 64
-    public fixed byte ExpenseType[32];
+    public fixed byte SomeField7[32];
 
-    // Offset 1032: LedgerAmount (decimal = 16 bytes)
+    // Offset 1032: Amount (decimal = 16 bytes)
     // 1032 is a multiple of 8, so this is perfectly aligned!
     [FieldOffset(1032)]
-    public decimal LedgerAmount;
+    public decimal Amount;
 }
 
 ```
