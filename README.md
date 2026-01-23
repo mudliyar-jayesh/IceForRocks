@@ -1,5 +1,5 @@
 # IceForRocks 
-## A file-based database library.
+## A file-based database library. No Bloat, Just Speed!
 
 ### Why?
 I just have a project, that solely runs on file inputs from the user, and runs locally on the user's server. 
