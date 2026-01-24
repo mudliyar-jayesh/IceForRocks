@@ -56,18 +56,13 @@ public static class FastMapper<TClass, TStruct>
             if (prop.PropertyType == typeof(string))
             {
                 var size = prop.GetCustomAttribute<BinarySizeAttribute>()?.Size ?? 32;
-                var method = typeof(BinaryHelper).GetMethod(
+                var writeMethod = typeof(BinaryHelper).GetMethod(
                     "WriteString",
-                    BindingFlags.Public | BindingFlags.Static
+                    new[] { typeof(string), typeof(IntPtr), typeof(int) }
                 );
-                block.Add(
-                    Expression.Call(
-                        method,
-                        Expression.Property(src, prop),
-                        fieldPtr,
-                        Expression.Constant(size)
-                    )
-                );
+
+                var val = Expression.Property(src, prop);
+                block.Add(Expression.Call(writeMethod, val, fieldPtr, Expression.Constant(size)));
             }
             else if (prop.PropertyType == typeof(bool))
             {
@@ -105,12 +100,16 @@ public static class FastMapper<TClass, TStruct>
             else if (prop.PropertyType == typeof(DateTime))
             {
                 var toStoreMethod = typeof(DateHelper).GetMethod("ToStoreFormat");
-                var dateStringCall = Expression.Call(toStoreMethod, Expression.Property(src, prop));
+                var dateString = Expression.Call(toStoreMethod, Expression.Property(src, prop));
 
-                var writeMethod = typeof(BinaryHelper).GetMethod("WriteString");
+                var writeMethod = typeof(BinaryHelper).GetMethod(
+                    "WriteString",
+                    new[] { typeof(string), typeof(IntPtr), typeof(int) }
+                );
 
+                // Pass '8' as the limit. WriteString must handle the full 8 bytes!
                 block.Add(
-                    Expression.Call(writeMethod, dateStringCall, fieldPtr, Expression.Constant(8))
+                    Expression.Call(writeMethod, dateString, fieldPtr, Expression.Constant(8))
                 );
             }
             else // Handle Primitives (int, long, decimal)
@@ -191,11 +190,14 @@ public static class FastMapper<TClass, TStruct>
             {
                 var size = prop.GetCustomAttribute<BinarySizeAttribute>()?.Size ?? 32;
 
-                var readMethod = typeof(BinaryHelper).GetMethod("ReadString");
+                var readMethod = typeof(BinaryHelper).GetMethod(
+                    "ReadString",
+                    new[] { typeof(IntPtr), typeof(int) }
+                );
+
                 var poolMethod = typeof(StringPool).GetMethod("GetOrAdd");
 
                 var readCall = Expression.Call(readMethod, fieldPtr, Expression.Constant(size));
-
                 var pooledCall = Expression.Call(poolMethod, readCall);
 
                 block.Add(Expression.Assign(Expression.Property(instance, prop), pooledCall));
@@ -236,13 +238,20 @@ public static class FastMapper<TClass, TStruct>
             }
             else if (prop.PropertyType == typeof(DateTime))
             {
-                var readMethod = typeof(BinaryHelper).GetMethod("ReadString");
+                var readMethod = typeof(BinaryHelper).GetMethod(
+                    "ReadString",
+                    new[] { typeof(IntPtr), typeof(int) }
+                );
+
+                // Dates are fixed 8-byte yyyyMMdd strings
                 var rawStringCall = Expression.Call(readMethod, fieldPtr, Expression.Constant(8));
-                // This removes the null terminator and any padding spaces
+
+                // Cleanup: Remove nulls and spaces
                 var trimMethod = typeof(string).GetMethod("Trim", new[] { typeof(char[]) });
                 var trimChars = Expression.Constant(new char[] { '\0', ' ' });
                 var cleanStringCall = Expression.Call(rawStringCall, trimMethod, trimChars);
 
+                // Parse back to DateTime object
                 var parseMethod = typeof(DateHelper).GetMethod("ParseSafe");
                 var dateTimeResult = Expression.Call(parseMethod, cleanStringCall);
 

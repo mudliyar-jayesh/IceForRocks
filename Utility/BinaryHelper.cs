@@ -29,7 +29,7 @@ public static class BinaryHelper
         return System.Text.Encoding.UTF8.GetString(target, length);
     }
 
-    public static void WriteString(string source, IntPtr dest, int limit)
+    public static void WriteStringOld(string source, IntPtr dest, int limit)
     {
         //  Zeroing out the memory first to prevent leftover data from old records
         //  padding to data
@@ -46,13 +46,48 @@ public static class BinaryHelper
         Marshal.Copy(bytes, 0, dest, length);
     }
 
-    public static string ReadString(IntPtr src, int limit)
+    public static unsafe void WriteString(string source, IntPtr destPtr, int limit)
+    {
+        byte* dest = (byte*)destPtr;
+
+        // Clear the target memory
+        for (int i = 0; i < limit; i++)
+            dest[i] = 0;
+
+        if (string.IsNullOrEmpty(source))
+            return;
+
+        var bytes = System.Text.Encoding.UTF8.GetBytes(source);
+
+        // Write exactly what fits (No -1, No manual null terminator)
+        int length = Math.Min(bytes.Length, limit);
+        Marshal.Copy(bytes, 0, destPtr, length);
+    }
+
+    public static string ReadStringOld(IntPtr src, int limit)
     {
         byte[] buffer = new byte[limit];
         Marshal.Copy(src, buffer, 0, limit);
 
         // Get the string and trim the trailing nulls (zeros) and spaces
         return System.Text.Encoding.UTF8.GetString(buffer).TrimEnd('\0', ' ');
+    }
+
+    public static unsafe string ReadString(IntPtr srcPtr, int limit)
+    {
+        byte* src = (byte*)srcPtr;
+        if (src == null)
+            return string.Empty;
+
+        // Find the actual length of the string (up to the first null or the limit)
+        int actualLength = 0;
+        while (actualLength < limit && src[actualLength] != 0)
+        {
+            actualLength++;
+        }
+
+        // Only convert the bytes that actually contain data
+        return System.Text.Encoding.UTF8.GetString(src, actualLength);
     }
 
     public static void WriteDecimal(IntPtr dest, decimal value)
@@ -67,23 +102,6 @@ public static class BinaryHelper
         Marshal.Copy(src, bits, 0, 4);
         return new decimal(bits);
     }
-
-    /*
-        public static void WriteBytes(byte[] source, IntPtr dest, int limit)
-        {
-            if (source == null)
-                return;
-            Marshal.Copy(source, 0, dest, Math.Min(source.Length, limit));
-        }
-    
-        public static void ReadBytes(IntPtr source, byte[] dest, int limit)
-        {
-            if (dest == null || source == IntPtr.Zero)
-                return;
-    
-            Marshal.Copy(source, dest, 0, Math.Min(dest.Length, limit));
-        }
-     */
 
     public static void WriteBytes(byte[] source, IntPtr dest, int limit)
     {
