@@ -45,26 +45,8 @@ public class User
 
 ```
 We use FastMapper<>.MapToStruct() and FastMapper<>.MapToClass() to convert between the database record and the class objects. 
-Here are two examples to setup a record for database, that is actually getting saved,
-1. Sequential Struct 
-```code
-
-[StructLayout(LayoutKind.Sequential, Pack = 1)]
-public unsafe struct UserRecord
-{
-    public fixed byte UserName[64];
-    public fixed byte EmailId[64];
-    public byte IsActive;
-    public fixed byte Password[88];
-    /* TODO: fixing this is taking too much time, we use strings for now
-    public fixed byte PasswordHash[128];
-    public fixed byte PasswordSalt[128];
-    */
-}
-
-```
-
-2. Explicit Struct (Recommended)
+Here is an example to setup a record for database, that is actually getting saved,
+ Explicit Struct (Recommended)
 ```code
 [StructLayout(LayoutKind.Explicit, Size = 1048)]
 public unsafe struct JobRegisterRecord
