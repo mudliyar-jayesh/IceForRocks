@@ -76,4 +76,44 @@ public static unsafe class BinaryComparisonHelper
         }
         return true;
     }
+
+    public static int CompareBytes(byte* ptrA, byte* ptrB, int maxLength)
+    {
+        if (*ptrA != *ptrB)
+        {
+            return *ptrA - *ptrB;
+        }
+
+        for (int i = 0; i < maxLength; i++)
+        {
+            byte A = ptrA[i];
+            byte B = ptrB[i];
+            if (A != B)
+            {
+                return A - B;
+            }
+            if (A == 0)
+            {
+                return 0; // end of string
+            }
+        }
+        return 0;
+    }
+
+    public static bool SpanEquals(byte* ptr, ReadOnlySpan<byte> target)
+    {
+        if (target.Length > 0 && *ptr != target[0])
+        {
+            return false; // prefix compare, false if mismatch
+        }
+
+        var memorySpan = new ReadOnlySpan<byte>(ptr, target.Length);
+
+        if (!memorySpan.SequenceEqual(target))
+        {
+            return false;
+        }
+
+        return ptr[target.Length] == 0; // exact match if end is null terminator
+    }
 }

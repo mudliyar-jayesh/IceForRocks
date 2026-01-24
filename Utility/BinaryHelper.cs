@@ -73,6 +73,21 @@ public static class BinaryHelper
         return System.Text.Encoding.UTF8.GetString(buffer).TrimEnd('\0', ' ');
     }
 
+    public static unsafe string ReadString(byte* ptr, int maxLength)
+    {
+        if (*ptr == 0)
+        {
+            return string.Empty;
+        }
+
+        int length = 0;
+        while (length < maxLength && ptr[length] != 0)
+        {
+            length++;
+        }
+        return System.Text.Encoding.UTF8.GetString(ptr, length);
+    }
+
     public static unsafe string ReadString(IntPtr srcPtr, int limit)
     {
         byte* src = (byte*)srcPtr;

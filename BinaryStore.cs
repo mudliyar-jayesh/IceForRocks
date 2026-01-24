@@ -369,4 +369,26 @@ public class BinaryStore<T>
             accessor.SafeMemoryMappedViewHandle.ReleasePointer();
         }
     }
+
+    public unsafe List<int> FilterByField<TValue>(
+        byte* basePtr,
+        int totalRecords,
+        int recordSize,
+        int fieldOffset,
+        TValue targetValue
+    )
+        where TValue : unmanaged
+    {
+        var matchingIndices = new List<int>();
+        for (int i = 0; i < totalRecords; i++)
+        {
+            void* fieldPtr = (byte*)basePtr + (i * recordSize) + fieldOffset;
+
+            if (EqualityComparer<TValue>.Default.Equals(*(TValue*)fieldPtr, targetValue))
+            {
+                matchingIndices.Add(i);
+            }
+        }
+        return matchingIndices;
+    }
 }
