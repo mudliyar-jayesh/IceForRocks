@@ -55,7 +55,7 @@ public class IceFreezer<T> : IDisposable
         _bufferIndex = 0;
     }
 
-    public void Complete()
+    public void Close()
     {
         if (_bufferIndex > 0)
         {
