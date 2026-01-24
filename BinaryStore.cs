@@ -282,4 +282,91 @@ public class BinaryStore<T>
 
         return results.ToList();
     }
+
+    /*
+    Updated Batched Search for better and faster reads.
+    */
+    public List<T> Read(
+        string filePath,
+        Func<T, bool> predicate,
+        Func<T, object> orderBy = null,
+        bool ascending = true,
+        int page = 1,
+        int pageSize = 50
+    )
+    {
+        var filteredMatches = new List<T>();
+
+        foreach (var batch in BatchStream(filePath, 20_000))
+        {
+            foreach (var record in batch)
+            {
+                if (predicate(record))
+                {
+                    filteredMatches.Add(record);
+                }
+            }
+        }
+
+        IEnumerable<T> query = filteredMatches;
+        if (orderBy != null)
+        {
+            query = ascending ? query.OrderBy(orderBy) : query.OrderByDescending(orderBy);
+        }
+
+        return query.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+    }
+
+    public IEnumerable<T[]> BatchStream(string filePath, int batchSize = 10000)
+    {
+        var fileInfo = new FileInfo(filePath);
+        if (!fileInfo.Exists)
+        {
+            yield break;
+        }
+
+        long totalRecords = fileInfo.Length / _recordSize;
+        using var memMap = MemoryMappedFile.CreateFromFile(filePath, FileMode.Open);
+
+        using var accessor = memMap.CreateViewAccessor(
+            0,
+            fileInfo.Length,
+            MemoryMappedFileAccess.Read
+        );
+
+        for (long i = 0; i < totalRecords; i += batchSize)
+        {
+            int currentBatchSize = (int)Math.Min(batchSize, totalRecords - i);
+            T[] batch = new T[currentBatchSize];
+
+            CopyBatchUnsafe(accessor, i, batch);
+
+            yield return batch;
+        }
+    }
+
+    private unsafe void CopyBatchUnsafe(
+        MemoryMappedViewAccessor accessor,
+        long startRecord,
+        T[] destination
+    )
+    {
+        byte* basePtr = null;
+        accessor.SafeMemoryMappedViewHandle.AcquirePointer(ref basePtr);
+
+        try
+        {
+            byte* startPtr = basePtr + (startRecord * _recordSize);
+
+            fixed (T* destPtr = destination)
+            {
+                var copySize = destination.Length * _recordSize;
+                Buffer.MemoryCopy(startPtr, destPtr, copySize, copySize);
+            }
+        }
+        finally
+        {
+            accessor.SafeMemoryMappedViewHandle.ReleasePointer();
+        }
+    }
 }
