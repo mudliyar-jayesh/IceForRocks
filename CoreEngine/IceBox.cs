@@ -31,21 +31,17 @@ public class IceBox<T>
         }
     }
 
-    public void Update(IceQuery<T> query, Action<T> updateAction)
+    public void Update(IceQuery<T> query, RefAction<T> updateAction)
     {
-        _fileLock.EnterReadLock();
+        _fileLock.EnterWriteLock();
 
         try
         {
-            RefAction<T> action = delegate(ref T item)
-            {
-                updateAction(item);
-            };
-            _breaker.ApplyUpdate(query, action);
+            _breaker.ApplyUpdate(query, updateAction);
         }
         finally
         {
-            _fileLock.ExitReadLock();
+            _fileLock.ExitWriteLock();
         }
     }
 }

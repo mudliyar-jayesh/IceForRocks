@@ -8,6 +8,8 @@ public unsafe class IceQuery<T>
     public Func<T, bool>? Predicate { get; set; }
     public Func<T, ulong>? BitmaskGenerator { get; set; }
 
+    public IceQuery() { }
+
     public IceQuery(byte* basePtr, int recordSize, int totalRecords)
     {
         _basePtr = basePtr;

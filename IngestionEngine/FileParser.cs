@@ -5,6 +5,7 @@ namespace IceForRocks.Ingestion;
 
 public interface IFileParser<T>
 {
+    public void Setup(string dbath);
     public Task ParseCSVFile(
         StreamReader streamReader,
         Func<string, T> parseMethod,
@@ -12,7 +13,7 @@ public interface IFileParser<T>
     );
 }
 
-public class FileParser<T>
+public class FileParser<T> : IFileParser<T>
     where T : unmanaged
 {
     private const int ChannelCapacity = 5000;
