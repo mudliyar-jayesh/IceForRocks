@@ -31,6 +31,20 @@ public class IceBox<T>
         }
     }
 
+    public List<TResult> Select<TResult>(IceQuery<T> query, IceSelector<T, TResult> selector)
+    {
+        _fileLock.EnterReadLock();
+
+        try
+        {
+            return _breaker.Select(query, selector);
+        }
+        finally
+        {
+            _fileLock.ExitReadLock();
+        }
+    }
+
     public void Update(IceQuery<T> query, RefAction<T> updateAction)
     {
         _fileLock.EnterWriteLock();

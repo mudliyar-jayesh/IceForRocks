@@ -59,7 +59,8 @@ public class FileParser<T> : IFileParser<T>
     )
     {
         var results = new List<T>(4096);
-
+        //skip header
+        await streamReader.ReadLineAsync();
         string? line;
         while ((line = await streamReader.ReadLineAsync()) != null)
         {

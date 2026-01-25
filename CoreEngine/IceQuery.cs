@@ -1,3 +1,5 @@
+public delegate TResult IceSelector<T, TResult>(ref T record);
+
 public unsafe class IceQuery<T>
 {
     private readonly byte* _basePtr;

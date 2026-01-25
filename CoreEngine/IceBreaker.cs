@@ -102,6 +102,33 @@ public class IceBreaker<T> : IDisposable
         }
     }
 
+    public unsafe List<TResult> Select<TResult>(IceQuery<T> query, IceSelector<T, TResult> selector)
+    {
+        var results = new List<TResult>();
+        for (int idx = 0; idx < _segmentCount; idx++)
+        {
+            SegmentHeader* headerPtr = (SegmentHeader*)(_idxBasePtr + (idx * _idxSize));
+
+            if (query.SearchMask != 0 && (headerPtr->Bitmask & query.SearchMask) == 0)
+            {
+                continue;
+            }
+
+            long dataStartLocation = (long)idx * _dataSize;
+            T* recordPtr = (T*)(_dataBasePtr + dataStartLocation);
+
+            if (query.Predicate != null && query.Predicate(*recordPtr))
+            {
+                results.Add(selector(ref *recordPtr));
+            }
+            else if (query.Predicate == null)
+            {
+                results.Add(selector(ref *recordPtr));
+            }
+        }
+        return results;
+    }
+
     public unsafe List<T> Search(IceQuery<T> query)
     {
         var results = new List<T>();
@@ -118,6 +145,10 @@ public class IceBreaker<T> : IDisposable
             T* recordPtr = (T*)(_dataBasePtr + dataStartLocation);
 
             if (query.Predicate != null && query.Predicate(*recordPtr))
+            {
+                results.Add(*recordPtr);
+            }
+            else if (query.Predicate == null)
             {
                 results.Add(*recordPtr);
             }
