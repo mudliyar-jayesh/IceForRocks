@@ -1,4 +1,5 @@
 using System.Threading.Channels;
+using IceForRocks.Core;
 
 namespace IceForRocks.Ingestion;
 
@@ -74,6 +75,6 @@ public class FileParser<T>
             }
         }
 
-        freezer.Close();
+        freezer.Dispose();
     }
 }
