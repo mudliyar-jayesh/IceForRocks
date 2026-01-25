@@ -1,77 +1,106 @@
 using System.Runtime.InteropServices;
 
-namespace IceForRocks;
+namespace IceForRocks.Core;
 
 public class IceFreezer<T> : IDisposable
     where T : unmanaged
 {
-    private readonly FileStream _stream;
-    private readonly BinaryWriter _writer;
-    private readonly List<SegmentHeader> _headers = new();
-    private readonly T[] _segmentBuffer;
-    private readonly int _recordSize;
-    private int _bufferIndex = 0;
+    private readonly FileStream _dataStream;
+    private readonly FileStream _idxStream;
+
+    private readonly BinaryWriter _dataWriter;
+    private readonly BinaryWriter _idxWriter;
+
+    private int _dataBufferIndex = 0;
+
     private readonly Func<T, ulong> _maskGenerator;
-    private const int SegmentSize = 4096;
+
+    private const int SegmentCapacity = 4096;
+
+    private readonly T[] _segmentBuffer;
 
     public IceFreezer(string filePath, Func<T, ulong> maskGenerator)
     {
-        _recordSize = Marshal.SizeOf<T>();
+        _segmentBuffer = new T[SegmentCapacity];
         _maskGenerator = maskGenerator;
-        _segmentBuffer = new T[SegmentSize];
 
-        _stream = new FileStream(
+        var dataDirectory = Path.GetDirectoryName(filePath)!;
+        if (!Directory.Exists(dataDirectory))
+        {
+            Directory.CreateDirectory(dataDirectory);
+        }
+
+        string idxFilePath = Path.Combine(
+            dataDirectory,
+            $"{Path.GetFileNameWithoutExtension(filePath)}_idx.bin"
+        );
+
+        _idxStream = new FileStream(
+            idxFilePath,
+            FileMode.Create,
+            FileAccess.Write,
+            FileShare.None,
+            1024
+        );
+
+        _dataStream = new FileStream(
             filePath,
             FileMode.Create,
             FileAccess.Write,
             FileShare.None,
             1024 * 1024
         );
-        _writer = new BinaryWriter(_stream);
+
+        _dataWriter = new BinaryWriter(_dataStream);
+        _idxWriter = new BinaryWriter(_idxStream);
     }
 
     public void Append(T record)
     {
-        _segmentBuffer[_bufferIndex++] = record;
-        if (_bufferIndex >= SegmentSize)
+        _segmentBuffer[_dataBufferIndex++] = record;
+        if (_dataBufferIndex >= SegmentCapacity)
         {
-            FlushSegment();
+            FlushDataAndIdx();
         }
     }
 
-    private void FlushSegment()
+    public void FlushDataAndIdx()
     {
-        ulong mask = 0;
-        for (int i = 0; i < _bufferIndex; i++)
+        var headers = new SegmentHeader[_dataBufferIndex];
+        for (int i = 0; i < _dataBufferIndex; i++)
         {
-            mask |= _maskGenerator(_segmentBuffer[i]);
+            ulong dataMask = 0;
+            dataMask |= _maskGenerator(_segmentBuffer[i]);
+            headers[i] = new SegmentHeader { Bitmask = dataMask };
         }
-        _headers.Add(new SegmentHeader() { Bitmask = mask });
 
-        var span = _segmentBuffer.AsSpan(0, _bufferIndex);
-        var bytes = MemoryMarshal.AsBytes(span);
-        _stream.Write(bytes);
+        var headerSpan = headers.AsSpan(0, headers.Length - 1);
+        var headerBytes = MemoryMarshal.AsBytes(headerSpan);
+        _idxWriter.Write(headerBytes);
 
-        _bufferIndex = 0;
+        var dataSpan = _segmentBuffer.AsSpan(0, _dataBufferIndex);
+        var dataBytes = MemoryMarshal.AsBytes(dataSpan);
+        _dataStream.Write(dataBytes);
+
+        _dataBufferIndex = 0; // reset
     }
 
-    public void Close()
+    public void Complete()
     {
-        if (_bufferIndex > 0)
+        if (_dataBufferIndex > 0)
         {
-            FlushSegment();
+            FlushDataAndIdx();
         }
 
-        var headerSpan = CollectionsMarshal.AsSpan(_headers);
-        _stream.Write(MemoryMarshal.AsBytes(headerSpan));
-
-        _writer.Write(_headers.Count);
-        _writer.Flush();
+        _idxWriter.Flush();
+        _dataWriter.Flush();
     }
 
     public void Dispose()
     {
-        _writer.Dispose();
-        _stream.Dispose();
+        _idxWriter.Dispose();
+        _idxStream.Dispose();
+        _dataWriter.Dispose();
+        _dataStream.Dispose();
     }
 }

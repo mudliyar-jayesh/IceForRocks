@@ -1,8 +1,12 @@
-public unsafe class IceQuery
+public unsafe class IceQuery<T>
 {
     private readonly byte* _basePtr;
     private readonly int _recordSize;
     public List<int> Indices { get; private set; }
+
+    public ulong SearchMask { get; set; }
+    public Func<T, bool>? Predicate { get; set; }
+    public Func<T, ulong> BitmaskGenerator { get; set; }
 
     public IceQuery(byte* basePtr, int recordSize, int totalRecords)
     {
@@ -11,7 +15,7 @@ public unsafe class IceQuery
         Indices = Enumerable.Range(0, totalRecords).ToList();
     }
 
-    public unsafe IceQuery Filter(int offset, string value)
+    public unsafe IceQuery<T> Filter(int offset, string value)
     {
         byte[] targetBytes = System.Text.Encoding.UTF8.GetBytes(value);
         ReadOnlySpan<byte> targetSpan = targetBytes.AsSpan();
@@ -30,7 +34,7 @@ public unsafe class IceQuery
         return this;
     }
 
-    public unsafe IceQuery SortByString(int offset, int fieldSize = 64)
+    public unsafe IceQuery<T> SortByString(int offset, int fieldSize = 64)
     {
         Indices.Sort(
             (a, b) =>
