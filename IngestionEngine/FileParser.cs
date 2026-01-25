@@ -3,18 +3,27 @@ using IceForRocks.Core;
 
 namespace IceForRocks.Ingestion;
 
+public interface IFileParser<T>
+{
+    public Task ParseCSVFile(
+        StreamReader streamReader,
+        Func<string, T> parseMethod,
+        Func<T, ulong> bitMaskGenerator
+    );
+}
+
 public class FileParser<T>
     where T : unmanaged
 {
     private const int ChannelCapacity = 5000;
 
-    public async Task ParseCSVFile(
-        StreamReader streamReader,
-        string dbPath,
-        Func<string, T> parseMethod
-    )
+    private string _dbPath = string.Empty;
+    private Channel<T[]>? _batchChannel;
+
+    public void Setup(string dbPath)
     {
-        var channel = Channel.CreateBounded<T[]>(
+        _dbPath = dbPath;
+        _batchChannel = Channel.CreateBounded<T[]>(
             new BoundedChannelOptions(ChannelCapacity)
             {
                 SingleWriter = true,
@@ -22,10 +31,23 @@ public class FileParser<T>
                 FullMode = BoundedChannelFullMode.Wait,
             }
         );
+    }
 
-        var writerTask = Task.Run(() => WriteToDisk(channel.Reader, dbPath));
+    public async Task ParseCSVFile(
+        StreamReader streamReader,
+        Func<string, T> parseMethod,
+        Func<T, ulong> bitMaskGenerator
+    )
+    {
+        if (_batchChannel is null)
+        {
+            throw new Exception("FileParser must be setup before use.");
+        }
+        var writerTask = Task.Run(() =>
+            WriteToDisk(_batchChannel.Reader, _dbPath, bitMaskGenerator)
+        );
 
-        await ReadFromFile(channel.Writer, streamReader, parseMethod);
+        await ReadFromFile(_batchChannel!.Writer, streamReader, parseMethod);
         await writerTask;
     }
 
@@ -37,7 +59,7 @@ public class FileParser<T>
     {
         var results = new List<T>(4096);
 
-        string line;
+        string? line;
         while ((line = await streamReader.ReadLineAsync()) != null)
         {
             if (string.IsNullOrWhiteSpace(line))
@@ -62,10 +84,14 @@ public class FileParser<T>
         writer.Complete();
     }
 
-    private async Task WriteToDisk(ChannelReader<T[]> reader, string dbPath)
+    private async Task WriteToDisk(
+        ChannelReader<T[]> reader,
+        string dbPath,
+        Func<T, ulong> bitmaskGenerator
+    )
     {
         // TODO: add masker later to methods for this line
-        using var freezer = new IceFreezer<T>(dbPath, r => 0);
+        using var freezer = new IceFreezer<T>(dbPath, bitmaskGenerator);
 
         await foreach (var batch in reader.ReadAllAsync())
         {

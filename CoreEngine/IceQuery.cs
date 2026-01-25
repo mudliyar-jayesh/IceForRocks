@@ -6,7 +6,7 @@ public unsafe class IceQuery<T>
 
     public ulong SearchMask { get; set; }
     public Func<T, bool>? Predicate { get; set; }
-    public Func<T, ulong> BitmaskGenerator { get; set; }
+    public Func<T, ulong>? BitmaskGenerator { get; set; }
 
     public IceQuery(byte* basePtr, int recordSize, int totalRecords)
     {

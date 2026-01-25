@@ -102,6 +102,29 @@ public class IceBreaker<T> : IDisposable
         }
     }
 
+    public unsafe List<T> Search(IceQuery<T> query)
+    {
+        var results = new List<T>();
+        for (int idx = 0; idx < _segmentCount; idx++)
+        {
+            SegmentHeader* headerPtr = (SegmentHeader*)(_idxBasePtr + (idx * _idxSize));
+
+            if (query.SearchMask != 0 && (headerPtr->Bitmask & query.SearchMask) == 0)
+            {
+                continue;
+            }
+
+            long dataStartLocation = (long)idx * _dataSize;
+            T* recordPtr = (T*)(_dataBasePtr + dataStartLocation);
+
+            if (query.Predicate != null && query.Predicate(*recordPtr))
+            {
+                results.Add(*recordPtr);
+            }
+        }
+        return results;
+    }
+
     public unsafe void Dispose()
     {
         if (_dataBasePtr != null)
