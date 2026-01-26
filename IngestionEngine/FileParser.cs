@@ -105,4 +105,15 @@ public class FileParser<T> : IFileParser<T>
 
         freezer.Dispose();
     }
+
+    public static (string FileName, string Extension) GetFileNameAndExtension(string filePath)
+    {
+        string fileName = Path.GetFileName(filePath);
+        var extensionIndex = fileName.IndexOf(".");
+        if (extensionIndex >= 0)
+        {
+            return (fileName.Substring(0, extensionIndex), fileName.Substring(extensionIndex));
+        }
+        return (string.Empty, string.Empty);
+    }
 }

@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using IceForRocks.Ingestion;
 
 namespace IceForRocks.Core;
 
@@ -30,10 +31,9 @@ public class IceFreezer<T> : IDisposable
             Directory.CreateDirectory(dataDirectory);
         }
 
-        string idxFilePath = Path.Combine(
-            dataDirectory,
-            $"{Path.GetFileNameWithoutExtension(filePath)}_idx.bin"
-        );
+        var (fileName, extension) = FileParser<T>.GetFileNameAndExtension(filePath);
+
+        string idxFilePath = Path.Combine(dataDirectory, $"{fileName}_idx{extension}");
 
         _idxStream = new FileStream(
             idxFilePath,

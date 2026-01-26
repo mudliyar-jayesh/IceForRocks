@@ -1,6 +1,6 @@
 namespace IceForRocks.Core;
 
-public class IceBox<T>
+public class IceBox<T> : IDisposable
     where T : unmanaged
 {
     private readonly string _basePath;
@@ -15,6 +15,8 @@ public class IceBox<T>
         _fileLock = IceVault.GetLock(_basePath);
         _breaker = new IceBreaker<T>(_basePath);
     }
+
+    public void Dispose() { }
 
     // TODO: handle pagination later
     public List<T> Search(IceQuery<T> query)
