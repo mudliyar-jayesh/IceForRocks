@@ -9,6 +9,8 @@ public delegate void RefAction<T>(ref T item);
 public class IceBreaker<T> : IDisposable
     where T : unmanaged
 {
+    private readonly FileStream _idxFileStream;
+    private readonly FileStream _dataFileStream;
     private readonly MemoryMappedFile _dataMemMap;
     private readonly MemoryMappedFile _idxMemMap;
 
@@ -46,19 +48,34 @@ public class IceBreaker<T> : IDisposable
         var dataFileInfo = new FileInfo(filePath);
         _dataFileSize = dataFileInfo.Length;
 
-        _idxMemMap = MemoryMappedFile.CreateFromFile(
+        _idxFileStream = new FileStream(
             idxFilePath,
             FileMode.Open,
+            FileAccess.ReadWrite,
+            FileShare.ReadWrite
+        );
+
+        _idxMemMap = MemoryMappedFile.CreateFromFile(
+            _idxFileStream,
             null,
             0,
-            MemoryMappedFileAccess.ReadWrite
+            MemoryMappedFileAccess.ReadWrite,
+            HandleInheritability.None,
+            false
         );
-        _dataMemMap = MemoryMappedFile.CreateFromFile(
+        _dataFileStream = new FileStream(
             filePath,
             FileMode.Open,
+            FileAccess.ReadWrite,
+            FileShare.ReadWrite
+        );
+        _dataMemMap = MemoryMappedFile.CreateFromFile(
+            _dataFileStream,
             null,
             0,
-            MemoryMappedFileAccess.ReadWrite
+            MemoryMappedFileAccess.ReadWrite,
+            HandleInheritability.None,
+            false
         );
 
         _dataAccessor = _dataMemMap.CreateViewAccessor(
@@ -171,8 +188,10 @@ public class IceBreaker<T> : IDisposable
 
         _dataAccessor.Dispose();
         _dataMemMap.Dispose();
+        _dataFileStream.Dispose();
 
         _idxAccessor.Dispose();
         _idxMemMap.Dispose();
+        _idxFileStream.Dispose();
     }
 }
