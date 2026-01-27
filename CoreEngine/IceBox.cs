@@ -78,32 +78,4 @@ public class IceBox<T> : IDisposable
             _fileLock.ExitWriteLock();
         }
     }
-
-    public void WriteRaw(ReadOnlySpan<T> data, bool append = false)
-    {
-        _fileLock.EnterWriteLock();
-        try
-        {
-            using var bulkFreezer = new IceFreezer<T>(_basePath, null, append);
-            bulkFreezer.WriteBulk(data);
-        }
-        finally
-        {
-            _fileLock.ExitWriteLock();
-        }
-    }
-
-    public void ReadRaw(string filePath, Span<T> destination)
-    {
-        _fileLock.EnterReadLock();
-        try
-        {
-            var breaker = new IceBreaker<T>(filePath);
-            breaker.LoadBulk(filePath, destination);
-        }
-        finally
-        {
-            _fileLock.ExitReadLock();
-        }
-    }
 }

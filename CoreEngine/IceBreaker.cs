@@ -180,22 +180,6 @@ public class IceBreaker<T> : IDisposable
         return results;
     }
 
-    public void LoadBulk(string filePath, Span<T> destination)
-    {
-        using var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
-
-        Span<byte> buffer = MemoryMarshal.AsBytes(destination);
-
-        int totalRead = 0;
-        while (totalRead < buffer.Length)
-        {
-            int read = stream.Read(buffer.Slice(totalRead));
-            if (read == 0)
-                break;
-            totalRead += read;
-        }
-    }
-
     public unsafe void Dispose()
     {
         if (_dataBasePtr != null)
