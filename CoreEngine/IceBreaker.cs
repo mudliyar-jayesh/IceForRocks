@@ -26,6 +26,7 @@ public class IceBreaker<T> : IDisposable
 
     private readonly long _dataFileSize;
     private readonly long _idxFileSize;
+    private bool _hasData;
 
     public unsafe IceBreaker(string filePath)
     {
@@ -42,6 +43,12 @@ public class IceBreaker<T> : IDisposable
             dataDirectory,
             $"{Path.GetFileNameWithoutExtension(filePath)}_idx.bin"
         );
+
+        if (!Path.Exists(filePath) || !Path.Exists(idxFilePath))
+        {
+            _hasData = false;
+            return;
+        }
 
         var idxFileInfo = new FileInfo(idxFilePath);
         _idxFileSize = idxFileInfo.Length;

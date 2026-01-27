@@ -93,7 +93,7 @@ public class FileParser<T> : IFileParser<T>
     )
     {
         // TODO: add masker later to methods for this line
-        using var freezer = new IceFreezer<T>(dbPath, bitmaskGenerator);
+        using var freezer = new IceFreezer<T>(dbPath, bitmaskGenerator, true);
 
         await foreach (var batch in reader.ReadAllAsync())
         {

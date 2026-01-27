@@ -4,7 +4,7 @@ public class IceBox<T> : IDisposable
     where T : unmanaged
 {
     private readonly string _basePath;
-    private readonly IceBreaker<T> _breaker;
+    private IceFreezer<T> _freezer;
 
     private readonly ReaderWriterLockSlim _fileLock;
 
@@ -13,19 +13,35 @@ public class IceBox<T> : IDisposable
         _basePath = dbPath;
 
         _fileLock = IceVault.GetLock(_basePath);
-        _breaker = new IceBreaker<T>(_basePath);
     }
 
     public void Dispose() { }
 
-    // TODO: handle pagination later
+    public void Write(List<T> records, Func<T, ulong> maskGenerator, bool append)
+    {
+        if (_freezer != null)
+        {
+            _freezer.Dispose();
+        }
+        _freezer = new IceFreezer<T>(_basePath, maskGenerator, append);
+        _fileLock.EnterWriteLock();
+        foreach (T record in records)
+        {
+            _freezer.Append(record);
+        }
+        _freezer.FlushDataAndIdx();
+        _freezer.Dispose();
+        _fileLock.ExitWriteLock();
+    }
+
     public List<T> Search(IceQuery<T> query)
     {
         _fileLock.EnterReadLock();
 
         try
         {
-            return _breaker.Search(query);
+            var breaker = new IceBreaker<T>(_basePath);
+            return breaker.Search(query);
         }
         finally
         {
@@ -39,7 +55,8 @@ public class IceBox<T> : IDisposable
 
         try
         {
-            return _breaker.Select(query, selector);
+            var breaker = new IceBreaker<T>(_basePath);
+            return breaker.Select(query, selector);
         }
         finally
         {
@@ -53,7 +70,8 @@ public class IceBox<T> : IDisposable
 
         try
         {
-            _breaker.ApplyUpdate(query, updateAction);
+            var breaker = new IceBreaker<T>(_basePath);
+            breaker.ApplyUpdate(query, updateAction);
         }
         finally
         {

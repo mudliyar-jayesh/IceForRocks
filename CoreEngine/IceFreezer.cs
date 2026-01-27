@@ -20,7 +20,7 @@ public class IceFreezer<T> : IDisposable
 
     private readonly T[] _segmentBuffer;
 
-    public IceFreezer(string filePath, Func<T, ulong> maskGenerator)
+    public IceFreezer(string filePath, Func<T, ulong> maskGenerator, bool append)
     {
         _segmentBuffer = new T[SegmentCapacity];
         _maskGenerator = maskGenerator;
@@ -35,19 +35,15 @@ public class IceFreezer<T> : IDisposable
 
         string idxFilePath = Path.Combine(dataDirectory, $"{fileName}_idx{extension}");
 
-        _idxStream = new FileStream(
-            idxFilePath,
-            FileMode.Create,
-            FileAccess.Write,
-            FileShare.None,
-            1024
-        );
+        FileMode mode = append ? FileMode.Append : FileMode.Create;
+
+        _idxStream = new FileStream(idxFilePath, mode, FileAccess.Write, FileShare.ReadWrite, 1024);
 
         _dataStream = new FileStream(
             filePath,
-            FileMode.Create,
+            mode,
             FileAccess.Write,
-            FileShare.None,
+            FileShare.ReadWrite,
             1024 * 1024
         );
 
@@ -74,7 +70,7 @@ public class IceFreezer<T> : IDisposable
             headers[i] = new SegmentHeader { Bitmask = dataMask };
         }
 
-        var headerSpan = headers.AsSpan(0, headers.Length - 1);
+        var headerSpan = headers.AsSpan(0, headers.Length);
         var headerBytes = MemoryMarshal.AsBytes(headerSpan);
         _idxWriter.Write(headerBytes);
 
