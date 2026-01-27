@@ -92,6 +92,26 @@ public class IceFreezer<T> : IDisposable
         _dataWriter.Flush();
     }
 
+    public void WriteBulk(ReadOnlySpan<T> records)
+    {
+        if (records.IsEmpty)
+        {
+            return;
+        }
+        var headers = new SegmentHeader[records.Length];
+        for (int i = 0; i < records.Length; i++)
+        {
+            ulong dataMask = _maskGenerator?.Invoke(records[i]) ?? 0;
+            headers[i] = new SegmentHeader { Bitmask = dataMask };
+        }
+
+        var headerBytes = MemoryMarshal.AsBytes(headers.AsSpan());
+        _idxStream.Write(headerBytes);
+
+        var dataBytes = MemoryMarshal.AsBytes(records);
+        _dataStream.Write(dataBytes);
+    }
+
     public void Dispose()
     {
         _idxWriter.Dispose();
