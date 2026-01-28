@@ -102,7 +102,7 @@ public class FileParser<T> : IFileParser<T>
                 freezer.Append(record);
             }
         }
-
+        freezer.Complete();
         freezer.Dispose();
     }
 

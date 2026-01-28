@@ -90,6 +90,9 @@ public class IceFreezer<T> : IDisposable
 
         _idxWriter.Flush();
         _dataWriter.Flush();
+
+        _idxStream.Flush(true);
+        _dataStream.Flush(true);
     }
 
     public void Dispose()
