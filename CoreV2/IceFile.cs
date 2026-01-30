@@ -34,8 +34,15 @@ public unsafe class IceFile<T> : IDisposable where T : unmanaged
         Capacity = _stream.Length;
 
         MapInternal();
-
+        
         _position = 0;
+    }
+    
+    private void MapInternal()
+    {
+        _file = MemoryMappedFile.CreateFromFile(_stream!, null, Capacity, MemoryMappedFileAccess.ReadWrite, HandleInheritability.None, false);
+        _view = _file.CreateViewAccessor(0, Capacity);
+        _view.SafeMemoryMappedViewHandle.AcquirePointer(ref _basePtr);
     }
 
     public void Append(T item)
@@ -47,6 +54,11 @@ public unsafe class IceFile<T> : IDisposable where T : unmanaged
 
         *(T*)(_basePtr + _position) = item;
         _position += _recordSize;
+    }
+
+    public void Commit()
+    {
+        _stream?.Flush();
     }
 
     private void Resize(long updatedCapcity)
@@ -68,12 +80,6 @@ public unsafe class IceFile<T> : IDisposable where T : unmanaged
         MapInternal();
     }
 
-    private void MapInternal()
-    {
-        _file = MemoryMappedFile.CreateFromFile(_stream!, null, Capacity, MemoryMappedFileAccess.ReadWrite, HandleInheritability.None, false);
-        _view = _file.CreateViewAccessor(0, Capacity);
-        _view.SafeMemoryMappedViewHandle.AcquirePointer(ref _basePtr);
-    }
 
     public T* BasePointer => (T*)_basePtr;
     public int Count => (int) (_position / _recordSize);

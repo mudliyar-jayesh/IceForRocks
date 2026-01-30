@@ -47,6 +47,11 @@ public class IceHeap : IDisposable
         return Encoding.UTF8.GetString(data);
     }
 
+    public void Commit()
+    {
+        _stream?.Flush();
+    }
+
     public void Dispose()
     {
         _stream!.Dispose();

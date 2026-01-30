@@ -26,22 +26,31 @@ public class IceMap: IDisposable
 
     }
 
-    public int GetOrAdd(string value)
+    public int Get(string value)
+    {
+        if (string.IsNullOrEmpty(value) || string.IsNullOrWhiteSpace(value)  ||
+            !_forward.ContainsKey(value))
+        {
+            return -1;
+        }
+        return _forward[value];
+    }
+
+    public int Add(string value)
     {
         if (string.IsNullOrEmpty(value) || string.IsNullOrWhiteSpace(value))
         {
-            return 0;
+            return -1;
         }
 
-        if (_forward.TryGetValue(value, out int id))
+        if (_forward.ContainsKey(value))
         {
-            return id;
+            return _forward[value];
         }
-        // add the key if not there
+        
         lock (_lock)
         {
             int newId = _reverse.Count;
-
             _reverse.Add(value);
             _forward[value] = newId;
 
@@ -53,7 +62,7 @@ public class IceMap: IDisposable
 
     public string GetValue(int id)
     {
-        if (id <= 0 || id > _reverse.Count)
+        if (id < 0 || id > _reverse.Count)
         {
             return string.Empty;
         }
@@ -74,7 +83,7 @@ public class IceMap: IDisposable
             {
                 string value = reader.ReadString();
 
-                int id = _reverse.Count;
+                 int id = _reverse.Count;
                 _reverse.Add(value);
                 _forward[value] = id;
             } 

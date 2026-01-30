@@ -29,7 +29,11 @@ public unsafe class IceStore<TRow> : IDisposable where TRow : unmanaged
 
     public int GetId(string mapName, string value)
     {
-        return GetMap(mapName).GetOrAdd(value);
+        return GetMap(mapName).Get(value);
+    }
+    public int AddToMap(string mapName, string value)
+    {
+        return GetMap(mapName).Add(value);
     }
     public string GetValue(string mapName, int id)
     {
@@ -49,9 +53,19 @@ public unsafe class IceStore<TRow> : IDisposable where TRow : unmanaged
         }
     }
 
+    public void CommitBlock()
+    {
+        _block.Commit();
+    }
+
     public (long Offset, int Length) WriteSlush(string text)
     {
         return _slush.Write(text);
+    }
+
+    public void CommitSlush()
+    {
+        _slush.Commit();
     }
 
     public string ReadSlush(long offset, int length)
@@ -110,6 +124,30 @@ public unsafe class IceStore<TRow> : IDisposable where TRow : unmanaged
 
     }
 
+    public void Walk(Action<TRow, int> action)
+    {
+        _lock.EnterReadLock();
+        try
+        {
+            unsafe
+            {
+                TRow* ptr = _block.BasePointer;
+                int count = _block.Count;
+                for (int i = 0; i < count; i++)
+                {
+                    // No predicate needed for a full summary, just pass the row and its index
+                    action(ptr[i], i);
+                }
+            }
+        }
+        finally
+        {
+            _lock.ExitReadLock();
+        }
+    }
+
+
+
     public double Sum(Func<TRow, bool> predicate, Func<TRow, double> valueSelector)
     {
         _lock.EnterReadLock();
@@ -156,7 +194,7 @@ public unsafe class IceStore<TRow> : IDisposable where TRow : unmanaged
         return map;
     }
 
-    private TRow GetRowAt(int index)
+    public TRow GetRowAt(int index)
     {
         _lock.EnterReadLock();
         try
