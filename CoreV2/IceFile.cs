@@ -82,7 +82,14 @@ public unsafe class IceFile<T> : IDisposable where T : unmanaged
 
 
     public T* BasePointer => (T*)_basePtr;
-    public int Count => (int) ((_position + 1) * _recordSize/ _recordSize);
+    //public int Count => (int) ((_position + 1) * _recordSize/ _recordSize);
+    public int Count => GetCount();
+
+    private int GetCount()
+    {
+        FileInfo info = new FileInfo(FilePath);
+        return (int) info.Length / _recordSize;
+    }
 
     public void SetPosition(long count)
     {

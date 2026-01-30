@@ -14,6 +14,8 @@ public class IceMap: IDisposable
     private readonly FileStream _stream;
     private readonly BinaryWriter _writer;
     private readonly object _lock = new();
+    
+    public List<string> GetValues() => _reverse;
 
     public IceMap(string path)
     {
