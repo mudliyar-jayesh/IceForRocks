@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Reflection.PortableExecutable;
 using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
+using IceForRocks.Core;
 
 namespace IceForRocks.CoreV2;
 
@@ -143,6 +144,27 @@ public unsafe class IceStore<TRow> : IDisposable where TRow : unmanaged
         finally
         {
             _lock.ExitReadLock();
+        }
+    }
+
+    public void Update(RefAction<TRow> action)
+    {
+        _lock.EnterWriteLock();
+        try
+        {
+            unsafe
+            {
+                TRow* ptr = _block.BasePointer;
+                int count = _block.Count;
+                for (int i = 0; i < count; i++)
+                {
+                    action(ref ptr[i]);
+                }
+            }
+        }
+        finally
+        {
+            _lock.ExitWriteLock();
         }
     }
 
