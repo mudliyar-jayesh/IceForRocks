@@ -11,9 +11,13 @@ public unsafe class IceFile<T> : IDisposable where T : unmanaged
     private byte* _basePtr;
     private long _position;
     private readonly int _recordSize;
-
+    private readonly int _headerSize = sizeof(long);
+    
     public long Capacity { get; private set;}
     public string? FilePath { get; set; }
+
+    
+    public T* BasePointer => (T*)(_basePtr + _headerSize);
 
     public IceFile(string path, long defaultCapacity = 1024 * 1024 * 10)
     {
@@ -25,17 +29,36 @@ public unsafe class IceFile<T> : IDisposable where T : unmanaged
         {
             Directory.CreateDirectory(directory);
         }
-
         _stream = new FileStream(path, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.Read);
-        if (_stream.Length < defaultCapacity)
+        
+        var maxCap = Math.Max(defaultCapacity, _headerSize);
+        if (_stream.Length < maxCap)
         {
-            _stream.SetLength(defaultCapacity);
+            _stream.SetLength(maxCap);
         }
         Capacity = _stream.Length;
 
         MapInternal();
         
-        _position = 0;
+        _position = _headerSize + ((long)Count * _recordSize);
+    }
+
+    public int Count
+    {
+        get => (int)(*(long*)_basePtr);
+        private set => *(long*)_basePtr = value;
+    }
+    
+    public void Append(T item)
+    {
+        if (_position + _recordSize > Capacity)
+        {
+            Resize(Capacity * 2);
+        }
+
+        *(T*)(_basePtr + _position) = item;
+        _position += _recordSize;
+        Count++;
     }
     
     private void MapInternal()
@@ -44,20 +67,10 @@ public unsafe class IceFile<T> : IDisposable where T : unmanaged
         _view = _file.CreateViewAccessor(0, Capacity);
         _view.SafeMemoryMappedViewHandle.AcquirePointer(ref _basePtr);
     }
-
-    public void Append(T item)
-    {
-        if (_position + _recordSize > Capacity)
-        {
-            Resize(Capacity * 2); // basically extend like a dynammic list
-        }
-
-        *(T*)(_basePtr + _position) = item;
-        _position += _recordSize;
-    }
-
+    
     public void Commit()
     {
+        _view?.Flush();
         _stream?.Flush();
     }
 
@@ -66,7 +79,6 @@ public unsafe class IceFile<T> : IDisposable where T : unmanaged
         if (_basePtr != null)
         {
             _view!.SafeMemoryMappedViewHandle.ReleasePointer();
-            _basePtr = null;
         }
 
         _view?.Dispose();
@@ -80,29 +92,9 @@ public unsafe class IceFile<T> : IDisposable where T : unmanaged
         MapInternal();
     }
 
-
-    public T* BasePointer => (T*)_basePtr;
-    //public int Count => (int) ((_position + 1) * _recordSize/ _recordSize);
-    public int Count => GetCount();
-
-    private int GetCount()
-    {
-        FileInfo info = new FileInfo(FilePath);
-        return (int) info.Length / _recordSize;
-    }
-
-    public void SetPosition(long count)
-    {
-        long requiredBytes = count * _recordSize;
-        if (requiredBytes > Capacity)
-        {
-            Resize(requiredBytes + 1024 * 1024);
-        }
-        _position = requiredBytes;
-    }
-
     public void Dispose()
     {
+        Commit();
         if (_basePtr != null)
         {
             _view!.SafeMemoryMappedViewHandle.ReleasePointer();
@@ -110,10 +102,5 @@ public unsafe class IceFile<T> : IDisposable where T : unmanaged
         _view?.Dispose();
         _file?.Dispose();
         _stream?.Dispose();
-    }
-
-    public ReadOnlySpan<byte> GetDump()
-    {
-        return new ReadOnlySpan<byte>(_basePtr, Count * _recordSize);
     }
 }

@@ -8,8 +8,8 @@ namespace IceForRocks.CoreV2;
 
 public unsafe class IceStore<TRow> : IDisposable where TRow : unmanaged
 {
-    public IceFile<TRow> _block { get; }
-    public IceHeap _slush { get; }
+    public IceFile<TRow> Block { get; }
+    public IceHeap Slush { get; }
 
     private readonly string _mapPath;
     private readonly Dictionary<string, IceMap> _maps = new();
@@ -21,8 +21,8 @@ public unsafe class IceStore<TRow> : IDisposable where TRow : unmanaged
         var tableDirectory = Path.Combine(rootPath, $".{tableName}");
         Directory.CreateDirectory(tableDirectory);
 
-        _block = new IceFile<TRow>(Path.Combine(tableDirectory, "data.block"));
-        _slush = new IceHeap(Path.Combine(tableDirectory, "data.slush"));
+        Block = new IceFile<TRow>(Path.Combine(tableDirectory, "data.block"));
+        Slush = new IceHeap(Path.Combine(tableDirectory, "data.slush"));
 
         _mapPath = Path.Combine(tableDirectory, "maps");
         Directory.CreateDirectory(_mapPath);
@@ -46,7 +46,7 @@ public unsafe class IceStore<TRow> : IDisposable where TRow : unmanaged
         _lock.EnterWriteLock();
         try
         {
-            _block.Append(row);
+            Block.Append(row);
         }
         finally
         {
@@ -56,22 +56,22 @@ public unsafe class IceStore<TRow> : IDisposable where TRow : unmanaged
 
     public void CommitBlock()
     {
-        _block.Commit();
+        Block.Commit();
     }
 
     public (long Offset, int Length) WriteSlush(string text)
     {
-        return _slush.Write(text);
+        return Slush.Write(text);
     }
 
     public void CommitSlush()
     {
-        _slush.Commit();
+        Slush.Commit();
     }
 
     public string ReadSlush(long offset, int length)
     {
-        return _slush.Read(offset, length);
+        return Slush.Read(offset, length);
     }
 
     private List<int> FindMatchingIndices(Func<TRow, bool> predicate, int? skip = null, int? take = null)
@@ -82,8 +82,8 @@ public unsafe class IceStore<TRow> : IDisposable where TRow : unmanaged
         {
             unsafe
             {
-                TRow* ptr = _block.BasePointer;
-                int count = _block.Count;
+                TRow* ptr = Block.BasePointer;
+                int count = Block.Count;
                 for (int i = 0; i < count; i++)
                 {
                     if (predicate(ptr[i]))
@@ -132,8 +132,8 @@ public unsafe class IceStore<TRow> : IDisposable where TRow : unmanaged
         {
             unsafe
             {
-                TRow* ptr = _block.BasePointer;
-                int count = _block.Count;
+                TRow* ptr = Block.BasePointer;
+                int count = Block.Count;
                 for (int i = 0; i < count; i++)
                 {
                     // No predicate needed for a full summary, just pass the row and its index
@@ -154,8 +154,8 @@ public unsafe class IceStore<TRow> : IDisposable where TRow : unmanaged
         {
             unsafe
             {
-                TRow* ptr = _block.BasePointer;
-                int count = _block.Count;
+                TRow* ptr = Block.BasePointer;
+                int count = Block.Count;
                 for (int i = 0; i < count; i++)
                 {
                     action(ref ptr[i]);
@@ -175,8 +175,8 @@ public unsafe class IceStore<TRow> : IDisposable where TRow : unmanaged
         _lock.EnterReadLock();
         try
         {
-            var ptr = _block.BasePointer;
-            var count = _block.Count;
+            var ptr = Block.BasePointer;
+            var count = Block.Count;
             double total = 0;
             object lockObj = new object();
             Parallel.ForEach(Partitioner.Create(0, count), range =>
@@ -223,7 +223,7 @@ public unsafe class IceStore<TRow> : IDisposable where TRow : unmanaged
         {
             unsafe
             {
-                return _block.BasePointer[index];
+                return Block.BasePointer[index];
             }
         } 
         finally
@@ -234,8 +234,8 @@ public unsafe class IceStore<TRow> : IDisposable where TRow : unmanaged
 
     public void Dispose()
     {
-        _block.Dispose();
-        _slush.Dispose();
+        Block.Dispose();
+        Slush.Dispose();
         foreach (var map in _maps.Values)
         {
             map.Dispose();
