@@ -23,25 +23,28 @@ Explore the code, it ain't that much. but Suggestions are ALWAYS WELCOME! ðŸ«¡ðŸ
 ### How to handle Models? 
 The data storing will be handled by a struct, following is an example 
 ```code
-public class User
+
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public struct JobRow
 {
-    [BinarySize(64)]
-    public string UserName { get; set; } = string.Empty;
-
-    [BinarySize(128)]
-    public string EmailId { get; set; } = string.Empty;
-    public bool IsActive { get; set; }
-
-    [BinarySize(88)]
-    public string Password { get; set; } = string.Empty;
-
-    /*    [BinarySize(128)]
-        public byte[]? PasswordHash { get; set; }
+    public int JobNoId;             
     
-        [BinarySize(128)]
-        public byte[]? PasswordSalt { get; set; }
-        */
+    // --- Date (Stored as YYYYMMDD for easy sorting/filtering) ---
+    public int DateEncoded;         
+
+    public double LedgerAmount;     
+
+    public int VoucherTypeId;       
+    public int BranchId;            
+    public int LedgerNameId;        
+    public int ExpenseTypeId;
+    public int ParticularsId;
+
+    public long VoucherNoOffset;    
+    public int VoucherNoLength;     
+    
 }
+
 
 ```
 Now, I did not have a sample code, so, this is how I am using the IceStore in a project I have 
