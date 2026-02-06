@@ -21,7 +21,7 @@ Soon I will complete the official version 1.
 Explore the code, it ain't that much. but Suggestions are ALWAYS WELCOME! 🫡🤝
 
 ### How to handle Models? 
-This is the an example for class object to use for regular application operations,
+The data storing will be handled by a struct, following is an example 
 ```code
 public class User
 {
@@ -44,58 +44,227 @@ public class User
 }
 
 ```
-We use FastMapper<>.MapToStruct() and FastMapper<>.MapToClass() to convert between the database record and the class objects. 
-Here is an example to setup a record for database, that is actually getting saved,
- Explicit Struct (Recommended)
+Now, I did not have a sample code, so, this is how I am using the IceStore in a project I have 
 ```code
-[StructLayout(LayoutKind.Explicit, Size = 1048)]
-public unsafe struct JobRegisterRecord
+using System.ComponentModel.DataAnnotations;
+using System.Globalization;
+using CHABusiness.Models;
+using CHABusiness.Records;
+using CHABusiness.Utility;
+using IceForRocks.CoreV2;
+
+namespace CHABusiness.Repositories;
+
+
+
+public class JobRepository :  IDisposable
 {
-    // Offset 0: Date (long = 8 bytes)
-    [FieldOffset(0)]
-    public fixed byte Date[8];
+    private readonly IceStore<JobRow> _store;
 
-    // Offset 8: Start of String Blocks
-    [FieldOffset(8)]
-    public fixed byte Particulars[128];
+    public JobRepository(string dbRoot)
+    {
+        _store = new IceStore<JobRow>(dbRoot, "JobRegister");
+    }
+    
 
-    [FieldOffset(136)] // 8 + 128
-    public fixed byte Entity[64];
+    public void Ingest(string[] parts)
+    {
+        /*
+         * Column order
+         * 0 - "Voucher No."
+         * 1 - "Date"
+         * 2 - "Voucher Type"
+         * 3 - "Branch"
+         * 4 - "Party Name"
+         * 5 - "Amount"
+         * 6 - "Job No."
+         * 7 - "Ledger Name"
+         * 8 - "Ledger Amount"
+         * 9 - "Expense Type",
+         */
+        var row = new JobRow();
+        (row.VoucherNoOffset, row.VoucherNoLength) = _store.WriteSlush(SanitizeCsvValue(parts[0]));
+        DateTime safeDate = DataTypeHelper.ParseSafe(SanitizeCsvValue(parts[1]));
+        row.DateEncoded = ParseDateToInt(safeDate.ToString("yyyy-MM-dd"));
+        row.VoucherTypeId = _store.AddToMap("VoucherType", SanitizeCsvValue(parts[2]));
+        row.BranchId = _store.AddToMap("Branch", SanitizeCsvValue(parts[3]));
+        row.ParticularsId = _store.AddToMap("Particulars", SanitizeCsvValue(parts[4]));
+        row.JobNoId = _store.AddToMap("JobNo", SanitizeCsvValue(parts[6]));
+        row.LedgerNameId = _store.AddToMap("Ledger", SanitizeCsvValue(parts[7]));
+        row.LedgerAmount = double.TryParse(SanitizeCsvValue(parts[8]), out var amt) ? amt : 0;
+        row.ExpenseTypeId = _store.AddToMap("ExpenseType", SanitizeCsvValue(parts[9]));
+        _store.Insert(row);
+    }
 
-    [FieldOffset(200)] // 136 + 64
-    public fixed byte EntityAddress[256];
+    private string SanitizeCsvValue(string original)
+    {
+        if  (string.IsNullOrEmpty(original))
+        {
+            return string.Empty;
+        }
 
-    [FieldOffset(456)] // 200 + 256
-    public fixed byte Consignee[64];
+        if (original.StartsWith('"'))
+        {
+            original = original.Trim('"');
+        }
+        return original;
+    }
 
-    [FieldOffset(520)] // 456 + 64
-    public fixed byte ConsigneeAddress[256];
+    public void Commit()
+    {
+        _store.CommitBlock();
+        _store.CommitSlush();
+    }
 
-    [FieldOffset(776)] // 520 + 256
-    public fixed byte SomeField1[32];
 
-    [FieldOffset(808)] // 776 + 32
-    public fixed byte SomeField2[32];
+    public List<string> GetBranches()
+    {
+        return _store.GetMap("Branch").GetValues();
+    }
 
-    [FieldOffset(840)] // 808 + 32
-    public fixed byte SomeField3[32];
+ 
+    public (int Count, List<JobSummary> Data) GetJobSummary(JobSummaryParams filters)
+    {
+        int incomeId = _store.GetId("ExpenseType", "Income");
+        int expenseId = _store.GetId("ExpenseType", "Expense");
 
-    [FieldOffset(872)] // 840 + 32
-    public fixed byte SomeField4[32];
+        var buckets = new Dictionary<(int JobId, int LedgerId, int particularId), JobSummaryAccumulator>();
 
-    [FieldOffset(904)] // 872 + 32
-    public fixed byte SomeField5[32];
+        var branchIds = new List<int>();
+        if (filters.BranchNames.Any())
+        {
+            branchIds = filters.BranchNames.Select(x => _store.GetId("Branch", x)).ToList();
+        }
+        string searchKey = filters.SearchType switch
+        {
+            "ptry" => "Ledger",
+            "prtc" => "Particulars",
+            _ => "JobNo"
+        };
+        var searchIds = new List<int>();
+        if (!string.IsNullOrEmpty(filters.SearchValue))
+        {
+            searchIds = _store.GetMap(searchKey).GetValues().Where(x => x.Contains(filters.SearchValue))
+                .Select(y => _store.GetId(searchKey, y))
+                .ToList();
+        }
 
-    [FieldOffset(936)] // 904 + 32
-    public fixed byte SomeField6[64];
+        _store.Walk((JobRow row, int index) =>
+        {
+            if (branchIds.Any() && !branchIds.Contains(row.BranchId))
+            {
+                return;
+            }
 
-    [FieldOffset(1000)] // 936 + 64
-    public fixed byte SomeField7[32];
+            if (searchIds.Any())
+            {
+                bool mismatch = searchKey switch
+                {
+                    "JobNo" => !searchIds.Contains(row.JobNoId),
+                    "Ledger" => !searchIds.Contains(row.LedgerNameId),
+                    "Particulars" => !searchIds.Contains(row.ParticularsId),
+                    _ => false,
+                };
+                if (mismatch)
+                {
+                    return;
+                }
+            }
+            
+            var key = (row.JobNoId, row.LedgerNameId, row.ParticularsId);
+            if (!buckets.TryGetValue(key, out var acc))
+            {
+                acc = new JobSummaryAccumulator();
+                acc.JobId = row.JobNoId;
+                acc.LedgerId = row.LedgerNameId;
+                acc.ParticularsId = row.ParticularsId;
+                acc.FirstRowId = index;
+                buckets[key] = acc;
+            }
+            acc.FoundIndices.Add(index);
+            if (row.ExpenseTypeId == incomeId)
+            {
+                acc.TotalIncome += Math.Abs(row.LedgerAmount);
+            }
+            else if (row.ExpenseTypeId == expenseId)
+            {
+                acc.TotalExpense += Math.Abs(row.LedgerAmount);
+            }
+        });
 
-    // Offset 1032: Amount (decimal = 16 bytes)
-    // 1032 is a multiple of 8, so this is perfectly aligned!
-    [FieldOffset(1032)]
-    public decimal Amount;
+        IEnumerable<JobSummaryAccumulator> filtered = filters.CashFilter switch
+        {
+            "inc_zero" => buckets.Values.Where(x => x.TotalIncome == 0),
+            "exp_zero" => buckets.Values.Where(x => x.TotalExpense == 0),
+            "exp_gt"   => buckets.Values.Where(x => x.TotalExpense > x.TotalIncome),
+            "inc_gt"   => buckets.Values.Where(x => x.TotalIncome > x.TotalExpense),
+            _          => buckets.Values
+        };
+
+        int count = filtered.Count();
+
+        return (count,filtered
+            .Skip(filters.Skip)
+            .Take(filters.Take)
+            .Select(acc => ThawSummary(acc))
+            .OrderBy(acc => acc.JobNo)
+            .ToList());
+    }
+
+    private JobSummary ThawSummary(JobSummaryAccumulator acc)
+    {
+        var row = _store.GetRowAt(acc.FirstRowId);
+        return new JobSummary
+        {
+            JobNo = _store.GetValue("JobNo", acc.JobId),
+            LedgerName = _store.GetValue("Ledger", acc.LedgerId),
+            JobDate = DateIntToString(row.DateEncoded),
+            PartyName = _store.GetValue("Particulars", row.ParticularsId),
+            TotalIncome = acc.TotalIncome,
+            TotalExpense = acc.TotalExpense,
+            Balance = (decimal)(acc.TotalIncome - acc.TotalExpense),
+            RegisterIndices = acc.FoundIndices.ToList(),
+        };
+    }
+
+    private JobRegister ThawToRegister(int index)
+    {
+        var row = _store.GetRowAt(index);
+        return new JobRegister
+        {
+            JobNo = row.JobNoId.ToString(),
+            LedgerAmount = row.LedgerAmount.ToString(CultureInfo.InvariantCulture),
+            Date = DateHelper.ParseSafe(DataTypeHelper.DateIntToString(row.DateEncoded)),
+            VoucherNo = _store.ReadSlush(row.VoucherNoOffset, row.VoucherNoLength),
+            VoucherType = _store.GetValue("VoucherType", row.VoucherTypeId),
+            Branch = _store.GetValue("Branch", row.BranchId),
+            LedgerName = _store.GetValue("Ledger", row.LedgerNameId),
+            ExpenseType = _store.GetValue("ExpenseType", row.ExpenseTypeId)
+        };
+    }
+
+    private int ParseDateToInt(string date) 
+        => int.TryParse(date.Replace("-", ""), out var d) ? d : 0;
+
+    private string DateIntToString(int date)
+        => DateTime.TryParseExact(date.ToString(), "yyyyMMdd", null, DateTimeStyles.None, out var dt) 
+            ? dt.ToString("dd-MM-yyyy") : date.ToString();
+
+    public void Dispose()
+    {
+        _store.Dispose();
+    }
+}
+
+internal class JobSummaryAccumulator
+{
+    public int FirstRowId;
+    public int JobId;
+    public int LedgerId;
+    public int ParticularsId;
+    public double TotalIncome;
+    public double TotalExpense;
+    public List<int> FoundIndices { get; set;  } = new List<int>();
 }
 
 ```
