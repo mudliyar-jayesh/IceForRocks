@@ -190,5 +190,57 @@ Retrieval/
 - SnowMan.cs (Table logic)
 Maintenance/
 - Icebox.cs (compaction)
+
+
+--- how to put them together 
+first lets see how to put the data in.
+we have either a single struct of record or a row of csv file, basically a row.
+so first we shred the data.
+the so called pipeline must be 
+we have row
+so row has columns (yes, i need sleep)
+to map column to the column file, we need to identify the column type and which action to use on it.
+so before the column write, we need to write the WAL entry. 
+so i need wal entry for each field.
+can be done either by including the column type and other info in the transaction log 
+but that is too much data that repeats
+so a schema file? maybe. 
+okay if a schema file.
+we can have the column type action Numeric/Bitpack/String
+now, here is a problem.
+if string is unique to table, local symbol table. 
+but if shared, we need to get the shared symbol table.
+so, 
+record -> write to wal -> have faith.
+faith is running in the background, with a channel.
+immediate flushing is right, but we might increaes IO ops.
+so what to do? section wise? yes. that might work.
+smaller pages maybe? 
+i dont know. lets assume we try random page count wise.
+4KB is a page, so 4096 by the record size? 
+considering each column is either numeric,packed or string
+implementation differs. thats why we have Icicle snowball and IceTray
+
+Icicle is numeric columns 
+Snowball is for bit packed or enum packed columns 
+IceTrays is the symbol table
+
+but to know more about the table/directory. 
+we need meta data, 
+like total rows,
+total columns 
+last Txid 
+
+but inserting data has another side, the missing values? 
+i think marking them with a flag might be too much if in the same file.
+so differnt file to mark it as either dead/tombstoned/stonecold or null.
+
+so that file requires a format,
+maybe, 
+TxId [8b] | Column File Name [variable b] | Is Null or Is Dead [1b]
+or lets take column id from schema
+TxId [8b] | Column name Id [2b]  | Is Null or Is Dead [2b] 
+
+   
 */
 
