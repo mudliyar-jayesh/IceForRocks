@@ -159,5 +159,36 @@ then on failing that,
  updates and  deletes 
  tombstone a record and insert the updated by marking the previous as dead and re-assigning the ids for the column files.
  compaction, we rrun this occasionaly to clean up the database.
+ 
+ 
+ --- The structure
+SectionPager -> IceSheet
+ColumnFile -> Icicle
+WAL -> Iglo
+SymbolTable -> IceTray
+MetaData/Schema -> DryIce
+Tombstones/nulls -> Snowball 
+The Shredder -> IceBreaker
+Table -> SnowMan
+Compaction -> IceBox
+Query engine -> Scoop
+
+--- The project directory
+Storage/
+- IceSheet.cs (pager)
+- Icicle.cs (column)
+- Snowball.cs (bit packer)
+Ingestion/
+- Igloo.cs (wal)
+- IceBreaker.cs (shredder)
+Strings/
+- IceTray.cs (symbol table)
+Metadata/ 
+- DryIce.cs (schema/headers)
+Retrieval/
+- Scoop.cs (Query logic)
+- SnowMan.cs (Table logic)
+Maintenance/
+- Icebox.cs (compaction)
 */
 
