@@ -29,7 +29,7 @@ public unsafe class IceFile<T> : IDisposable where T : unmanaged
         {
             Directory.CreateDirectory(directory);
         }
-        _stream = new FileStream(path, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.Read);
+        _stream = new FileStream(path, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.ReadWrite |  FileShare.Delete);
         
         var maxCap = Math.Max(defaultCapacity, _headerSize);
         if (_stream.Length < maxCap)
@@ -65,7 +65,9 @@ public unsafe class IceFile<T> : IDisposable where T : unmanaged
     {
         _file = MemoryMappedFile.CreateFromFile(_stream!, null, Capacity, MemoryMappedFileAccess.ReadWrite, HandleInheritability.None, false);
         _view = _file.CreateViewAccessor(0, Capacity);
-        _view.SafeMemoryMappedViewHandle.AcquirePointer(ref _basePtr);
+        byte* tempPtr = null;
+        _view.SafeMemoryMappedViewHandle.AcquirePointer(ref tempPtr);
+        _basePtr = tempPtr;
     }
     
     public void Commit()
@@ -76,16 +78,18 @@ public unsafe class IceFile<T> : IDisposable where T : unmanaged
 
     private void Resize(long updatedCapcity)
     {
+        Commit();
         if (_basePtr != null)
         {
             _view!.SafeMemoryMappedViewHandle.ReleasePointer();
+            _basePtr = null;
         }
 
         _view?.Dispose();
         _file?.Dispose();
         _stream?.Dispose();
 
-        _stream = new FileStream(FilePath!, FileMode.Open, FileAccess.ReadWrite, FileShare.Read);
+        _stream = new FileStream(FilePath!, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite | FileShare.Delete);
         _stream.SetLength(updatedCapcity);
         Capacity = updatedCapcity;
 

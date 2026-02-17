@@ -21,7 +21,7 @@ public class IceMap: IDisposable
     {
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
 
-        _stream = new FileStream(path, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.Read);
+        _stream = new FileStream(path, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.ReadWrite);
         _writer = new BinaryWriter(_stream, Encoding.UTF8, leaveOpen: true);
 
         LoadExisting(path);

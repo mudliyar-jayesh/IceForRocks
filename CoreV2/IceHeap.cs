@@ -17,7 +17,7 @@ public class IceHeap : IDisposable
             Directory.CreateDirectory(directory);
         }
         FilePath = path;
-        _stream = new FileStream(path, FileMode.OpenOrCreate, FileAccess.Write, FileShare.Read);
+        _stream = new FileStream(path, FileMode.OpenOrCreate, FileAccess.Write, FileShare.ReadWrite);
         _stream.Seek(0, SeekOrigin.End);
     }
 
